@@ -1,19 +1,22 @@
 package com.github.misosouptgit.aps.spawn;
 
 import com.github.misosouptgit.aps.config.ModConfig;
-import com.mojang.datafixers.util.Pair;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Holder;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.tags.BiomeTags;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.BiomeSource;
 import net.minecraft.world.level.biome.Biomes;
 import net.minecraft.world.level.levelgen.Heightmap;
 import org.jetbrains.annotations.Nullable;
 
-//? if >=1.18.2 {
+//? if >=1.19 {
+import com.mojang.datafixers.util.Pair;
+import net.minecraft.core.Holder;
+import net.minecraft.tags.BiomeTags;
 import net.minecraft.world.level.levelgen.RandomState;
+//?} else if >=1.18.2 {
+/*import net.minecraft.core.Holder;
+import net.minecraft.tags.BiomeTags;*/
 //?} else {
 /*import net.minecraft.data.BuiltinRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -58,11 +61,9 @@ public final class PlainsBiomeLookup {
 		if (found == null) return null;
 		BlockPos pos = found.getFirst();
 		if (acceptCandidate(level, pos.getX(), pos.getZ(), step)) return pos;
-		BlockPos nudged = nudgeInterior(level, pos.getX(), pos.getZ(), step);
-		return nudged;
-		//?} else {
-		/*//? if <1.18.2 {
-		BiomeSource source = level.getChunkSource().getGenerator().getBiomeSource();
+		return nudgeInterior(level, pos.getX(), pos.getZ(), step);
+		//?} else if <1.18.2 {
+		/*BiomeSource source = level.getChunkSource().getGenerator().getBiomeSource();
 		BlockPos found = source.findBiomeHorizontal(
 				origin.getX(),
 				64,
@@ -75,11 +76,9 @@ public final class PlainsBiomeLookup {
 		);
 		if (found == null) return null;
 		if (acceptCandidate(level, found.getX(), found.getZ(), step)) return found;
-		return nudgeInterior(level, found.getX(), found.getZ(), step);
+		return nudgeInterior(level, found.getX(), found.getZ(), step);*/
 		//?} else {
-		return findSpiralNoise(level, origin, radius, step);
-		//?}
-		*/
+		/*return findSpiralNoise(level, origin, radius, step);*/
 		//?}
 	}
 
@@ -234,7 +233,7 @@ public final class PlainsBiomeLookup {
 		//?}
 	}
 
-	//? if >=1.18.2 {
+	//? if >=1.19 {
 	/** Sea-level Y is enough for surface biome tags; avoids getBaseHeight on every query. */
 	private static Holder<Biome> noiseBiome(ServerLevel level, int x, int z) {
 		int y = level.getSeaLevel();
@@ -242,6 +241,18 @@ public final class PlainsBiomeLookup {
 		RandomState randomState = level.getChunkSource().randomState();
 		return source.getNoiseBiome(x >> 2, y >> 2, z >> 2, randomState.sampler());
 	}
+
+	private static boolean isPlainsHolder(Holder<Biome> holder) {
+		return holder.is(Biomes.PLAINS);
+	}
+	//?} else if >=1.18.2 {
+	/*private static Holder<Biome> noiseBiome(ServerLevel level, int x, int z) {
+		return level.getNoiseBiome(x >> 2, level.getSeaLevel() >> 2, z >> 2);
+	}
+
+	private static boolean isPlainsHolder(Holder<Biome> holder) {
+		return holder.is(Biomes.PLAINS);
+	}*/
 	//?} else {
 	/*private static boolean nameContains(ServerLevel level, int x, int z, String... parts) {
 		Biome biome = level.getBiome(new BlockPos(x, 64, z));
@@ -253,12 +264,16 @@ public final class PlainsBiomeLookup {
 		}
 		return false;
 	}
-	*/
+
+	private static boolean isPlainsBiome(Biome biome) {
+		ResourceLocation id = BuiltinRegistries.BIOME.getKey(biome);
+		return id != null && id.getPath().equals("plains");
+	}*/
 	//?}
 
 	private static int estimateSurfaceY(ServerLevel level, int x, int z) {
-		//? if >=1.18.2 {
 		try {
+			//? if >=1.19 {
 			return level.getChunkSource().getGenerator().getBaseHeight(
 					x,
 					z,
@@ -266,36 +281,32 @@ public final class PlainsBiomeLookup {
 					level,
 					level.getChunkSource().randomState()
 			);
+			//?} else if >=1.17.1 {
+			/*return level.getChunkSource().getGenerator().getBaseHeight(
+					x,
+					z,
+					Heightmap.Types.WORLD_SURFACE_WG,
+					level
+			);*/
+			//?} else {
+			/*return level.getChunkSource().getGenerator().getBaseHeight(x, z, Heightmap.Types.WORLD_SURFACE_WG);*/
+			//?}
 		} catch (Throwable t) {
+			//? if >=1.17.1 {
 			return level.getSeaLevel();
+			//?} else {
+			/*return 64;*/
+			//?}
 		}
-		//?} else {
-		/*try {
-			return level.getChunkSource().getGenerator().getBaseHeight(x, z, Heightmap.Types.WORLD_SURFACE_WG);
-		} catch (Throwable t) {
-			return 64;
-		}*/
-		//?}
 	}
 
 	private static BlockPos finalizeSurface(ServerLevel level, int x, int z) {
 		int y = estimateSurfaceY(level, x, z);
-		//? if >=1.18.2 {
-		int minY = level.dimensionType().minY();
+		//? if >=1.17.1 {
+		int minY = level.getMinBuildHeight();
 		//?} else {
 		/*int minY = 0;*/
 		//?}
 		return new BlockPos(x, Math.max(y, minY + 1), z);
 	}
-
-	//? if >=1.18.2 {
-	private static boolean isPlainsHolder(Holder<Biome> holder) {
-		return holder.is(Biomes.PLAINS);
-	}
-	//?} else {
-	/*private static boolean isPlainsBiome(Biome biome) {
-		return biome == BuiltinRegistries.BIOME.get(Biomes.PLAINS);
-	}
-	*/
-	//?}
 }
