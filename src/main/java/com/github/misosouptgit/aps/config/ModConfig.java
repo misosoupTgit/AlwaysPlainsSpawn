@@ -15,7 +15,7 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Shared common config. Stored as {@code config/aps-common.toml}.
+ * Shared common config. Stored as {@code config/alwaysplainsspawn-common.toml}.
  */
 public final class ModConfig {
 	private static final Logger LOGGER = LogManager.getLogger("AlwaysPlainsSpawn/Config");
@@ -102,7 +102,7 @@ public final class ModConfig {
 	}
 
 	public static void load() {
-		Path path = Paths.get("config", "aps-common.toml");
+		Path path = Paths.get("config", "alwaysplainsspawn-common.toml");
 		try {
 			if (!Files.exists(path)) {
 				Files.createDirectories(path.getParent());

@@ -7,7 +7,7 @@ loomx.loom_version="1.16-SNAPSHOT"
 # - Forge: 1.17..1.20.1 (1.16.5 Forge unsupported).
 # - NeoForge: 1.20.2..26.1.2 (via 1.20.4+ targets + additionalVersions).
 
-mod.id = "aps"
+mod.id = "alwaysplainsspawn"
 mod.name = "Always Plains Spawn"
 mod.group = "com.github.misosouptgit"
 mod.version = "1.0.0"

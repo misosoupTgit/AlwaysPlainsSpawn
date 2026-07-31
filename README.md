@@ -19,7 +19,7 @@ With those defaults, a new world should feel like a practical industrial spawn r
 
 Mods that **heavily change terrain or biomes** (custom worldgen, large biome overhauls, exotic heightmaps, etc.) often clash with these assumptions. Spawn search may become slow, fail, or pick awkward sites.
 
-`config/aps-common.toml` can soften some mismatches (relax flatness, drop water/forest requirements, raise `max_surface_y`, widen search). That only helps when the world still has recognizable plains-like areas. **Forced use alongside deep worldgen overhauls is not recommended.**
+`config/alwaysplainsspawn-common.toml` can soften some mismatches (relax flatness, drop water/forest requirements, raise `max_surface_y`, widen search). That only helps when the world still has recognizable plains-like areas. **Forced use alongside deep worldgen overhauls is not recommended.**
 
 ## How it works
 
@@ -41,11 +41,11 @@ Performance-minded details (quality kept close to the strict checks):
 
 Bed / respawn-anchor spawns are unchanged. Without those, players use the plains world spawn.
 
-A per-world marker (`aps_relocated`) prevents re-running after success.
+A per-world marker (`alwaysplainsspawn_relocated`) prevents re-running after success.
 
 ## Config
 
-Path: `config/aps-common.toml` (created on first launch)
+Path: `config/alwaysplainsspawn-common.toml` (created on first launch)
 
 | Key | Meaning |
 |---|---|

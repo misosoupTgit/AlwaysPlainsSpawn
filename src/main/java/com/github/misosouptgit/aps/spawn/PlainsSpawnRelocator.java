@@ -20,7 +20,7 @@ import java.nio.file.Path;
  * we never forceload or re-ticket chunks ourselves.
  */
 public final class PlainsSpawnRelocator {
-	private static final String MARKER_FILE = "aps_relocated";
+	private static final String MARKER_FILE = "alwaysplainsspawn_relocated";
 
 	private PlainsSpawnRelocator() {}
 
