@@ -3,6 +3,7 @@
   "required": true,
   "minVersion": "0.8",
   "compatibilityLevel": "${java}",
+  "refmap": "aps.refmap.json",
   "injectors": {
     "defaultRequire": 1
   },

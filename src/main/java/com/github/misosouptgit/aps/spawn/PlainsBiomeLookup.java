@@ -1,54 +1,65 @@
 package com.github.misosouptgit.aps.spawn;
 
 import com.github.misosouptgit.aps.config.ModConfig;
+import com.mojang.datafixers.util.Pair;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.BiomeTags;
 import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.biome.BiomeSource;
 import net.minecraft.world.level.biome.Biomes;
 import net.minecraft.world.level.levelgen.Heightmap;
 import org.jetbrains.annotations.Nullable;
 
 //? if >=1.18.2 {
-import com.mojang.datafixers.util.Pair;
-import net.minecraft.core.Holder;
+import net.minecraft.world.level.levelgen.RandomState;
 //?} else {
 /*import net.minecraft.data.BuiltinRegistries;
-import net.minecraft.world.level.biome.BiomeSource;
+import net.minecraft.resources.ResourceLocation;
 import java.util.Random;*/
 //?}
 
 /**
- * Version-flexible plains biome lookup.
+ * Fast plains lookup using biome noise only (no chunk generation during search).
  */
 public final class PlainsBiomeLookup {
 	private PlainsBiomeLookup() {}
 
 	@Nullable
 	public static BlockPos findPlains(ServerLevel level, BlockPos origin, int radius, int step, ModConfig.Algorithm algorithm) {
+		int safeStep = Math.max(4, step);
+		BlockPos candidate;
 		if (algorithm == ModConfig.Algorithm.SPIRAL) {
-			BlockPos spiral = findSpiral(level, origin, radius, step);
-			if (spiral != null) return spiral;
+			candidate = findSpiralNoise(level, origin, radius, safeStep);
+			if (candidate == null) {
+				candidate = findLocateThenValidate(level, origin, radius, safeStep);
+			}
+		} else {
+			candidate = findLocateThenValidate(level, origin, radius, safeStep);
+			if (candidate == null) {
+				candidate = findSpiralNoise(level, origin, radius, safeStep);
+			}
 		}
-		BlockPos located = findLocate(level, origin, radius, step);
-		if (located != null) return located;
-		if (algorithm != ModConfig.Algorithm.SPIRAL) {
-			return findSpiral(level, origin, radius, step);
-		}
-		return null;
+		if (candidate == null) return null;
+		return finalizeSurface(level, candidate.getX(), candidate.getZ());
 	}
 
 	@Nullable
-	private static BlockPos findLocate(ServerLevel level, BlockPos origin, int radius, int step) {
-		int safeStep = Math.max(1, step);
+	private static BlockPos findLocateThenValidate(ServerLevel level, BlockPos origin, int radius, int step) {
 		//? if >=1.19 {
 		Pair<BlockPos, Holder<Biome>> found = level.findClosestBiome3d(
 				PlainsBiomeLookup::isPlainsHolder,
 				origin,
 				radius,
-				safeStep,
-				safeStep
+				step,
+				step
 		);
-		return found == null ? null : found.getFirst();
+		if (found == null) return null;
+		BlockPos pos = found.getFirst();
+		if (acceptCandidate(level, pos.getX(), pos.getZ(), step)) return pos;
+		BlockPos nudged = nudgeInterior(level, pos.getX(), pos.getZ(), step);
+		return nudged;
 		//?} else {
 		/*//? if <1.18.2 {
 		BiomeSource source = level.getChunkSource().getGenerator().getBiomeSource();
@@ -57,64 +68,224 @@ public final class PlainsBiomeLookup {
 				64,
 				origin.getZ(),
 				radius,
-				safeStep,
+				step,
 				PlainsBiomeLookup::isPlainsBiome,
 				new Random(level.getSeed()),
 				false
 		);
-		return found;
+		if (found == null) return null;
+		if (acceptCandidate(level, found.getX(), found.getZ(), step)) return found;
+		return nudgeInterior(level, found.getX(), found.getZ(), step);
 		//?} else {
-		// 1.18.2: Climate sampler API differs; spiral fallback handles locate.
-		return null;
+		return findSpiralNoise(level, origin, radius, step);
 		//?}
 		*/
 		//?}
 	}
 
 	@Nullable
-	private static BlockPos findSpiral(ServerLevel level, BlockPos origin, int radius, int step) {
-		int stepSize = Math.max(1, step);
-		if (isPlainsAt(level, origin)) {
-			return surface(level, origin.getX(), origin.getZ());
-		}
-		for (int r = stepSize; r <= radius; r += stepSize) {
-			for (int dx = -r; dx <= r; dx += stepSize) {
-				BlockPos a = probe(level, origin.getX() + dx, origin.getZ() - r);
-				if (a != null) return a;
-				BlockPos b = probe(level, origin.getX() + dx, origin.getZ() + r);
-				if (b != null) return b;
-			}
-			for (int dz = -r + stepSize; dz <= r - stepSize; dz += stepSize) {
-				BlockPos a = probe(level, origin.getX() - r, origin.getZ() + dz);
-				if (a != null) return a;
-				BlockPos b = probe(level, origin.getX() + r, origin.getZ() + dz);
-				if (b != null) return b;
+	private static BlockPos nudgeInterior(ServerLevel level, int x, int z, int step) {
+		int[][] dirs = {{step, 0}, {-step, 0}, {0, step}, {0, -step}, {step, step}, {step, -step}, {-step, step}, {-step, -step}};
+		for (int[] d : dirs) {
+			int nx = x + d[0] * Math.max(1, ModConfig.interiorChecks());
+			int nz = z + d[1] * Math.max(1, ModConfig.interiorChecks());
+			if (acceptCandidate(level, nx, nz, step)) {
+				return new BlockPos(nx, 0, nz);
 			}
 		}
 		return null;
 	}
 
 	@Nullable
-	private static BlockPos probe(ServerLevel level, int x, int z) {
-		BlockPos sample = new BlockPos(x, sampleY(level), z);
-		if (!isPlainsAt(level, sample)) return null;
-		return surface(level, x, z);
+	private static BlockPos findSpiralNoise(ServerLevel level, BlockPos origin, int radius, int step) {
+		if (acceptCandidate(level, origin.getX(), origin.getZ(), step)) {
+			return new BlockPos(origin.getX(), 0, origin.getZ());
+		}
+		for (int r = step; r <= radius; r += step) {
+			for (int dx = -r; dx <= r; dx += step) {
+				if (acceptCandidate(level, origin.getX() + dx, origin.getZ() - r, step)) {
+					return new BlockPos(origin.getX() + dx, 0, origin.getZ() - r);
+				}
+				if (acceptCandidate(level, origin.getX() + dx, origin.getZ() + r, step)) {
+					return new BlockPos(origin.getX() + dx, 0, origin.getZ() + r);
+				}
+			}
+			for (int dz = -r + step; dz <= r - step; dz += step) {
+				if (acceptCandidate(level, origin.getX() - r, origin.getZ() + dz, step)) {
+					return new BlockPos(origin.getX() - r, 0, origin.getZ() + dz);
+				}
+				if (acceptCandidate(level, origin.getX() + r, origin.getZ() + dz, step)) {
+					return new BlockPos(origin.getX() + r, 0, origin.getZ() + dz);
+				}
+			}
+		}
+		return null;
 	}
 
-	private static int sampleY(ServerLevel level) {
+	private static boolean acceptCandidate(ServerLevel level, int x, int z, int step) {
+		if (!isPlainsNoise(level, x, z)) return false;
+
+		int checks = ModConfig.interiorChecks();
+		if (checks > 0) {
+			int d = step * checks;
+			if (!isPlainsNoise(level, x + d, z)
+					|| !isPlainsNoise(level, x - d, z)
+					|| !isPlainsNoise(level, x, z + d)
+					|| !isPlainsNoise(level, x, z - d)) {
+				return false;
+			}
+		}
+
+		int surfaceY = estimateSurfaceY(level, x, z);
+		if (surfaceY > ModConfig.maxSurfaceY()) return false;
+		if (!isFlatEnough(level, x, z, surfaceY)) return false;
+		return hasNearbyAmenities(level, x, z);
+	}
+
+	/**
+	 * Sparse flatness: sample cardinals/diagonals at radius and half-radius.
+	 * Catches steep river cuts without dense getBaseHeight grids.
+	 */
+	private static boolean isFlatEnough(ServerLevel level, int x, int z, int centerY) {
+		int radius = ModConfig.flatnessRadius();
+		if (radius <= 0) return true;
+		int maxDelta = ModConfig.flatnessMaxDelta();
+		int half = Math.max(1, radius / 2);
+		int[] offsets = {radius, half};
+		for (int r : offsets) {
+			if (!flatOk(level, x + r, z, centerY, maxDelta)
+					|| !flatOk(level, x - r, z, centerY, maxDelta)
+					|| !flatOk(level, x, z + r, centerY, maxDelta)
+					|| !flatOk(level, x, z - r, centerY, maxDelta)) {
+				return false;
+			}
+			if (r == radius) {
+				if (!flatOk(level, x + r, z + r, centerY, maxDelta)
+						|| !flatOk(level, x + r, z - r, centerY, maxDelta)
+						|| !flatOk(level, x - r, z + r, centerY, maxDelta)
+						|| !flatOk(level, x - r, z - r, centerY, maxDelta)) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	private static boolean flatOk(ServerLevel level, int x, int z, int centerY, int maxDelta) {
+		return Math.abs(estimateSurfaceY(level, x, z) - centerY) <= maxDelta;
+	}
+
+	/** Single spiral for water + forest; one noise sample per column. */
+	private static boolean hasNearbyAmenities(ServerLevel level, int ox, int oz) {
+		boolean needWater = ModConfig.requireWaterNearby();
+		boolean needForest = ModConfig.requireForestNearby();
+		if (!needWater && !needForest) return true;
+
+		boolean foundWater = !needWater;
+		boolean foundForest = !needForest;
+		int radius = ModConfig.nearbyCheckRadius();
+		int step = Math.max(32, ModConfig.searchStep() / 2);
+		for (int r = step; r <= radius; r += step) {
+			for (int dx = -r; dx <= r; dx += step) {
+				int top = amenityFlags(level, ox + dx, oz - r);
+				foundWater |= needWater && (top & 1) != 0;
+				foundForest |= needForest && (top & 2) != 0;
+				if (foundWater && foundForest) return true;
+				int bot = amenityFlags(level, ox + dx, oz + r);
+				foundWater |= needWater && (bot & 1) != 0;
+				foundForest |= needForest && (bot & 2) != 0;
+				if (foundWater && foundForest) return true;
+			}
+			for (int dz = -r + step; dz <= r - step; dz += step) {
+				int left = amenityFlags(level, ox - r, oz + dz);
+				foundWater |= needWater && (left & 1) != 0;
+				foundForest |= needForest && (left & 2) != 0;
+				if (foundWater && foundForest) return true;
+				int right = amenityFlags(level, ox + r, oz + dz);
+				foundWater |= needWater && (right & 1) != 0;
+				foundForest |= needForest && (right & 2) != 0;
+				if (foundWater && foundForest) return true;
+			}
+		}
+		return foundWater && foundForest;
+	}
+
+	/** bit0 = water, bit1 = forest */
+	private static int amenityFlags(ServerLevel level, int x, int z) {
 		//? if >=1.18.2 {
-		return level.getSeaLevel();
+		Holder<Biome> h = noiseBiome(level, x, z);
+		int flags = 0;
+		if (h.is(BiomeTags.IS_RIVER) || h.is(BiomeTags.IS_OCEAN) || h.is(BiomeTags.IS_BEACH)) flags |= 1;
+		if (h.is(BiomeTags.IS_FOREST)) flags |= 2;
+		return flags;
 		//?} else {
-		/*return 64;*/
+		/*int flags = 0;
+		if (nameContains(level, x, z, "river", "ocean", "beach", "shore")) flags |= 1;
+		if (nameContains(level, x, z, "forest", "dark_forest", "birch")) flags |= 2;
+		return flags;*/
 		//?}
 	}
 
-	private static boolean isPlainsAt(ServerLevel level, BlockPos pos) {
+	private static boolean isPlainsNoise(ServerLevel level, int x, int z) {
 		//? if >=1.18.2 {
-		return isPlainsHolder(level.getBiome(pos));
+		return isPlainsHolder(noiseBiome(level, x, z));
 		//?} else {
-		/*return isPlainsBiome(level.getBiome(pos));*/
+		/*return isPlainsBiome(level.getBiome(new BlockPos(x, 64, z)));*/
 		//?}
+	}
+
+	//? if >=1.18.2 {
+	/** Sea-level Y is enough for surface biome tags; avoids getBaseHeight on every query. */
+	private static Holder<Biome> noiseBiome(ServerLevel level, int x, int z) {
+		int y = level.getSeaLevel();
+		BiomeSource source = level.getChunkSource().getGenerator().getBiomeSource();
+		RandomState randomState = level.getChunkSource().randomState();
+		return source.getNoiseBiome(x >> 2, y >> 2, z >> 2, randomState.sampler());
+	}
+	//?} else {
+	/*private static boolean nameContains(ServerLevel level, int x, int z, String... parts) {
+		Biome biome = level.getBiome(new BlockPos(x, 64, z));
+		ResourceLocation id = BuiltinRegistries.BIOME.getKey(biome);
+		if (id == null) return false;
+		String path = id.getPath();
+		for (String p : parts) {
+			if (path.contains(p)) return true;
+		}
+		return false;
+	}
+	*/
+	//?}
+
+	private static int estimateSurfaceY(ServerLevel level, int x, int z) {
+		//? if >=1.18.2 {
+		try {
+			return level.getChunkSource().getGenerator().getBaseHeight(
+					x,
+					z,
+					Heightmap.Types.WORLD_SURFACE_WG,
+					level,
+					level.getChunkSource().randomState()
+			);
+		} catch (Throwable t) {
+			return level.getSeaLevel();
+		}
+		//?} else {
+		/*try {
+			return level.getChunkSource().getGenerator().getBaseHeight(x, z, Heightmap.Types.WORLD_SURFACE_WG);
+		} catch (Throwable t) {
+			return 64;
+		}*/
+		//?}
+	}
+
+	private static BlockPos finalizeSurface(ServerLevel level, int x, int z) {
+		int y = estimateSurfaceY(level, x, z);
+		//? if >=1.18.2 {
+		int minY = level.dimensionType().minY();
+		//?} else {
+		/*int minY = 0;*/
+		//?}
+		return new BlockPos(x, Math.max(y, minY + 1), z);
 	}
 
 	//? if >=1.18.2 {
@@ -127,9 +298,4 @@ public final class PlainsBiomeLookup {
 	}
 	*/
 	//?}
-
-	private static BlockPos surface(ServerLevel level, int x, int z) {
-		int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
-		return new BlockPos(x, y, z);
-	}
 }

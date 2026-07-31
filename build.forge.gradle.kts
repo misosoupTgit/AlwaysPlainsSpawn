@@ -41,6 +41,11 @@ legacyForge {
 		rootProject.file("src/main/resources/aw/${sc.current.version}.cfg")
 	)
 
+	mixin {
+		add(sourceSets.main.get(), "${prop("mod.id")}.refmap.json")
+		config("${prop("mod.id")}.mixins.json")
+	}
+
 	runs {
 		register("client") {
 			client()
@@ -70,7 +75,9 @@ repositories {
 
 dependencies {
 	val architecturyGroup = if (sc.current.parsed <= "1.16.5") "me.shedaniel" else "dev.architectury"
-	implementation("$architecturyGroup:architectury-forge:${prop("deps.architectury")}")
+	// Published Forge mods are SRG-mapped; remapping config is required for official-mapped userdev.
+	modImplementation("$architecturyGroup:architectury-forge:${prop("deps.architectury")}")
+	annotationProcessor("org.spongepowered:mixin:0.8.5:processor")
 }
 
 tasks.named("createMinecraftArtifacts") {

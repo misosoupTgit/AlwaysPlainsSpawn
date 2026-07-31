@@ -4,7 +4,7 @@ loomx.loom_version="1.16-SNAPSHOT"
 # - Stonecutter compile targets are the "primary" MC versions below.
 # - Nearby patches are declared only via publish.additionalVersions (one jar, multi MC versions on upload).
 # - Full Mojang releases 1.16.5..26.1.2 covered for Fabric.
-# - Forge: 1.17..1.19.4 (1.16.5 Forge unsupported; forge 1.20.1 intentionally excluded).
+# - Forge: 1.17..1.20.1 (1.16.5 Forge unsupported).
 # - NeoForge: 1.20.2..26.1.2 (via 1.20.4+ targets + additionalVersions).
 
 mod.id = "aps"
@@ -167,6 +167,12 @@ deps.minecraft = "1.19.4"
 deps.forge = "45.3.0"
 deps.architectury = "8.2.91"
 publish.additionalVersions = ["1.19.3"]
+
+[forge."1.20.1"]
+deps.minecraft = "1.20.1"
+deps.forge = "47.3.0"
+deps.architectury = "9.2.14"
+publish.additionalVersions = ["1.20"]
 
 [neoforge]
 
