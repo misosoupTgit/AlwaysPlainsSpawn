@@ -1,0 +1,14 @@
+{
+  "package": "com.github.misosouptgit.aps.mixin",
+  "required": true,
+  "minVersion": "0.8",
+  "compatibilityLevel": "${java}",
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "mixins": [
+    "MinecraftServerMixin",
+    "PlayerListMixin"
+  ],
+  "client": []
+}
