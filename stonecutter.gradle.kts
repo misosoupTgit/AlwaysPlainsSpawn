@@ -124,6 +124,7 @@ tasks.register<TaskPublishCurseForge>("publishCurseForgeAll") {
 	}
 
 	apiToken = readCurseToken()
+	apiEndpoint = "https://minecraft.curseforge.com"
 	disableVersionDetection()
 
 	// Minimal changelog (displayName omitted — CurseForge uses the jar file name).
@@ -135,9 +136,14 @@ tasks.register<TaskPublishCurseForge>("publishCurseForgeAll") {
 	}
 
 	val distDir = layout.buildDirectory.dir("dist").get().asFile
+	val missing = mutableListOf<String>()
 
 	curseUploadTargets.forEach { target ->
 		val jarFile = distDir.resolve("$curseModId-$curseModVersion-${target.loader}+${target.minecraft}.jar")
+		if (!jarFile.isFile) {
+			missing += jarFile.name
+			return@forEach
+		}
 		val mainFile = upload(curseProjectId, jarFile)
 		mainFile.changelog = changelogText
 		mainFile.changelogType = "markdown"
@@ -163,4 +169,9 @@ tasks.register<TaskPublishCurseForge>("publishCurseForgeAll") {
 		val gameVersions = listOf(target.minecraft) + target.additionalVersions
 		mainFile.addGameVersion(*gameVersions.toTypedArray())
 	}
+
+	if (missing.isNotEmpty()) {
+		error("Missing jars in build/dist:\n" + missing.joinToString("\n"))
+	}
+	logger.lifecycle("CurseForge upload queued: ${getUploadArtifacts().size} files -> project $curseProjectId")
 }
