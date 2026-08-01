@@ -302,7 +302,7 @@ public final class PlainsBiomeLookup {
 
 	private static BlockPos finalizeSurface(ServerLevel level, int x, int z) {
 		int y = estimateSurfaceY(level, x, z);
-		//? if >=1.21.11 {
+		//? if >=1.21.3 {
 		/*int minY = level.getMinY();*/
 		//?} else if >=1.17.1 {
 		int minY = level.getMinBuildHeight();
