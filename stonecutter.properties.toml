@@ -23,7 +23,7 @@ mod.sources_url = "https://github.com/misosoupTgit/AlwaysPlainsSpawn"
 mod.homepage_url = "https://github.com/misosoupTgit/AlwaysPlainsSpawn"
 mod.issues_url = "https://github.com/misosoupTgit/AlwaysPlainsSpawn/issues"
 mod.discord_url = ""
-mod.environment = "*"
+mod.environment = "server"
 [[mod.pom.developers]]
 id = "misopy"
 name = "MisoPy"

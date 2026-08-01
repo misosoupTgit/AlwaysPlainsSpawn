@@ -59,11 +59,12 @@ data class CurseUploadTarget(
 	val additionalVersions: List<String> = emptyList(),
 )
 
-val curseProjectId = "1627774"
-val curseModId = "itemsplitbugfixreforged"
+val curseProjectId = "1633549"
+val curseModId = "alwaysplainsspawn"
 val curseModVersion = "1.0.0"
 
 // Oldest → newest within each loader. additionalVersions match stonecutter.properties.toml.
+// Loader order: Fabric → Forge → NeoForge (complete one loader before the next).
 val curseUploadTargets: List<CurseUploadTarget> = listOf(
 	CurseUploadTarget("fabric", "1.16.5"),
 	CurseUploadTarget("fabric", "1.17.1", listOf("1.17")),
@@ -84,6 +85,7 @@ val curseUploadTargets: List<CurseUploadTarget> = listOf(
 	CurseUploadTarget("forge", "1.18.2", listOf("1.18", "1.18.1")),
 	CurseUploadTarget("forge", "1.19.2", listOf("1.19", "1.19.1")),
 	CurseUploadTarget("forge", "1.19.4", listOf("1.19.3")),
+	CurseUploadTarget("forge", "1.20.1", listOf("1.20")),
 	CurseUploadTarget("neoforge", "1.20.4", listOf("1.20.2", "1.20.3")),
 	CurseUploadTarget("neoforge", "1.20.6", listOf("1.20.5")),
 	CurseUploadTarget("neoforge", "1.21.1", listOf("1.21")),
@@ -97,8 +99,8 @@ val curseUploadTargets: List<CurseUploadTarget> = listOf(
 
 tasks.register<TaskPublishCurseForge>("publishCurseForgeAll") {
 	group = "publishing"
-	description = "Upload all build/dist jars to CurseForge (Fabric → Forge → NeoForge, oldest MC first)"
-	dependsOn("buildAndCollectAll")
+	description = "Upload jars from build/dist to CurseForge (Fabric → Forge → NeoForge, oldest MC first)"
+	// Jars are expected in build/dist (e.g. downloaded from the GitHub Release). Does not rebuild.
 
 	fun readCurseToken(): String {
 		System.getenv("CURSEFORGE_TOKEN")?.takeIf { it.isNotBlank() }?.let { return it }
@@ -140,7 +142,7 @@ tasks.register<TaskPublishCurseForge>("publishCurseForgeAll") {
 		mainFile.changelog = changelogText
 		mainFile.changelogType = "markdown"
 		mainFile.releaseType = CFConstants.RELEASE_TYPE_RELEASE
-		mainFile.addEnvironment("Client", "Server")
+		mainFile.addEnvironment("Server")
 
 		when (target.loader) {
 			"fabric" -> {

@@ -118,8 +118,9 @@ private fun ModPublishExtension.curseforge(
 	ctx: Context, additionalVersions: List<String>, accessToken: String?, deps: DependenciesConfig
 ) = curseforge {
 	projectId = project.env("PUB_CURSEFORGE_PROJECT_ID")
-	client = ctx.environment.lowercase() in setOf("client", "both")
-	server = ctx.environment.lowercase() in setOf("server", "both")
+	val env = ctx.environment.lowercase()
+	client = env in setOf("client", "both", "*")
+	server = env in setOf("server", "both", "*")
 
 	this.accessToken = accessToken
 	minecraftVersions.addAll(listOf(ctx.currentMcVersion) + additionalVersions)
