@@ -59,7 +59,7 @@ data class CurseUploadTarget(
 	val additionalVersions: List<String> = emptyList(),
 )
 
-val curseProjectId = "1634458"
+val curseProjectId = "1634491"
 val curseModId = "alwaysplainsspawn"
 val curseModVersion = "1.0.0"
 
