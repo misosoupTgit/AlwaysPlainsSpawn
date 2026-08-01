@@ -9,6 +9,10 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.storage.LevelResource;
 import net.minecraft.world.level.storage.ServerLevelData;
 
+//? if >=1.21.11 {
+/*import net.minecraft.world.level.storage.LevelData;*/
+//?}
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -58,7 +62,7 @@ public final class PlainsSpawnRelocator {
 			return false;
 		}
 
-		levelData.setSpawn(found, 0.0F);
+		applySpawn(level, levelData, found, 0.0F);
 		mark(server);
 		AlwaysPlainsSpawn.LOGGER.info(
 				"Initial world spawn set to plains at {}, {}, {} (noise search)",
@@ -77,7 +81,7 @@ public final class PlainsSpawnRelocator {
 		if (server == null) return;
 		if (isMarked(server)) return;
 
-		BlockPos origin = level.getSharedSpawnPos();
+		BlockPos origin = currentSpawnPos(level);
 		BlockPos found = PlainsBiomeLookup.findPlains(
 				level,
 				origin,
@@ -98,10 +102,7 @@ public final class PlainsSpawnRelocator {
 			return;
 		}
 
-		// Prefer level-data write when possible; setDefaultSpawnPos also refreshes tickets
-		// on versions that still have spawn chunks. Spawn-chunk removers strip those tickets.
-		float angle = level.getSharedSpawnAngle();
-		level.setDefaultSpawnPos(found, angle);
+		applySpawn(level, (ServerLevelData) level.getLevelData(), found, currentSpawnAngle(level));
 		mark(server);
 		AlwaysPlainsSpawn.LOGGER.info(
 				"World spawn relocated to plains at {}, {}, {}",
@@ -114,6 +115,33 @@ public final class PlainsSpawnRelocator {
 	public static void relocateOverworld(MinecraftServer server) {
 		if (server == null) return;
 		relocateIfNeeded(server.overworld());
+	}
+
+	private static BlockPos currentSpawnPos(ServerLevel level) {
+		//? if >=1.21.11 {
+		/*return level.getRespawnData().pos();*/
+		//?} else {
+		return level.getSharedSpawnPos();
+		//?}
+	}
+
+	private static float currentSpawnAngle(ServerLevel level) {
+		//? if >=1.21.11 {
+		/*return level.getRespawnData().yaw();*/
+		//?} else {
+		return level.getSharedSpawnAngle();
+		//?}
+	}
+
+	private static void applySpawn(ServerLevel level, ServerLevelData levelData, BlockPos pos, float yaw) {
+		//? if >=1.21.11 {
+		/*LevelData.RespawnData data = LevelData.RespawnData.of(Level.OVERWORLD, pos, yaw, 0.0F);
+		levelData.setSpawn(data);
+		level.setRespawnData(data);*/
+		//?} else {
+		levelData.setSpawn(pos, yaw);
+		level.setDefaultSpawnPos(pos, yaw);
+		//?}
 	}
 
 	private static Path markerPath(MinecraftServer server) {

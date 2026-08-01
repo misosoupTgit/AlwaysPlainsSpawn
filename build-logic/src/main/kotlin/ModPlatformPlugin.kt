@@ -92,6 +92,11 @@ abstract class ModPlatformPlugin @Inject constructor() : Plugin<Project> {
 			)
 		}
 
+		// Fletching Table adds unfiltered maven.kikugie.dev repos (incl. a third-party proxy).
+		// Under parallel CI those hosts return 429/502/503 and Gradle aborts resolution
+		// instead of falling through to Maven Central / Fabric / NeoForged.
+		restrictKikugieRepositories()
+
 		afterEvaluate {
 			val ctx = Context(
 				project = this,
@@ -100,6 +105,23 @@ abstract class ModPlatformPlugin @Inject constructor() : Plugin<Project> {
 				stonecutter = project.sc
 			)
 			configureProject(ctx)
+		}
+	}
+
+	private fun Project.restrictKikugieRepositories() {
+		val toRemove = repositories
+			.withType<MavenArtifactRepository>()
+			.filter { "maven.kikugie.dev/third-pary" in it.url.toString() || "maven.kikugie.dev/third-party" in it.url.toString() }
+			.toList()
+		toRemove.forEach { repositories.remove(it) }
+
+		repositories.withType<MavenArtifactRepository>().configureEach {
+			if ("maven.kikugie.dev" in url.toString()) {
+				content {
+					includeGroup("dev.kikugie")
+					includeGroupByRegex("dev\\.kikugie(\\..*)?")
+				}
+			}
 		}
 	}
 
